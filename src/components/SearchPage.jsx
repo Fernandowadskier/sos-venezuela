@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import PersonDetailModal from './PersonDetailModal'
 
 const PAGE_SIZE = 20
 
@@ -29,6 +30,7 @@ const STATUS_CONFIG = {
 
 export default function SearchPage({ onSelectBuilding }) {
   const [tab, setTab] = useState('buildings')
+  const [selectedPerson, setSelectedPerson] = useState(null)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [damageFilter, setDamageFilter] = useState('')
@@ -202,13 +204,17 @@ export default function SearchPage({ onSelectBuilding }) {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-3">
               {tab === 'buildings'
                 ? results.map(b => <BuildingCard key={b.id} building={b} onSelect={onSelectBuilding} />)
-                : results.map(p => <PersonCard key={p.id} person={p} />)
+                : results.map(p => <PersonCard key={p.id} person={p} onSelect={setSelectedPerson} />)
               }
             </div>
             <LoadMore hasMore={hasMore} loading={loading} onLoad={loadMore} />
           </div>
         )}
       </div>
+
+      {selectedPerson && (
+        <PersonDetailModal person={selectedPerson} onClose={() => setSelectedPerson(null)} />
+      )}
     </div>
   )
 }
@@ -398,11 +404,13 @@ function BuildingCard({ building, onSelect }) {
   )
 }
 
-function PersonCard({ person }) {
+function PersonCard({ person, onSelect }) {
   const status = STATUS_CONFIG[person.status] || STATUS_CONFIG.desaparecido
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-sm flex flex-col">
+    <button
+      onClick={() => onSelect(person)}
+      className="bg-white rounded-2xl overflow-hidden shadow-sm flex flex-col text-left active:scale-95 transition-transform w-full">
       {/* Photo */}
       <div className="relative aspect-square w-full bg-gray-100">
         {person.photos?.[0] ? (
@@ -442,6 +450,6 @@ function PersonCard({ person }) {
           </a>
         )}
       </div>
-    </div>
+    </button>
   )
 }
