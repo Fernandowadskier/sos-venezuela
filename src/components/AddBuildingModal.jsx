@@ -11,7 +11,7 @@ const DAMAGE_OPTIONS = [
   { value: 'other',      label: 'Otro',               emoji: '📍' },
 ]
 
-export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onPickLocation, hidden }) {
+export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onPickLocation, onLocationFound, hidden }) {
   const [form, setForm] = useState({
     name: '',
     address: '',
@@ -26,6 +26,8 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
   const [error, setError] = useState('')
   const [geoLoading, setGeoLoading] = useState(false)
   const [resolvedAddress, setResolvedAddress] = useState('')
+  const [nearbyBuilding, setNearbyBuilding] = useState(null)
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false)
   const fileRef = useRef()
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
@@ -70,6 +72,7 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
         const label = parts.length > 0 ? parts.join(', ') : display_name
         setForm(f => ({ ...f, lat: parseFloat(lat).toFixed(6), lng: parseFloat(lon).toFixed(6), address: f.address || label }))
         setResolvedAddress(label)
+        onLocationFound?.(parseFloat(lat), parseFloat(lon))
       } else {
         setError('No se encontró la dirección. Intenta con más detalle o selecciona en el mapa.')
       }
@@ -79,12 +82,17 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
     setGeoLoading(false)
   }
 
-  const canSubmit = form.name.trim() && form.address.trim() && form.lat && form.lng && form.damage_type
+  const coordsInVenezuela = form.lat && form.lng &&
+    parseFloat(form.lat) >= 0.6 && parseFloat(form.lat) <= 12.2 &&
+    parseFloat(form.lng) >= -73.4 && parseFloat(form.lng) <= -59.6
+
+  const canSubmit = form.name.trim() && form.address.trim() && coordsInVenezuela && form.damage_type && photoFiles.length > 0
 
   const handleFiles = (files) => {
-    const arr = Array.from(files).slice(0, 5)
-    setPhotoFiles(arr)
-    setPhotos(arr.map(f => URL.createObjectURL(f)))
+    const incoming = Array.from(files)
+    const merged = [...photoFiles, ...incoming].slice(0, 5)
+    setPhotoFiles(merged)
+    setPhotos(merged.map(f => URL.createObjectURL(f)))
   }
 
   const handleSubmit = async (e) => {
@@ -94,6 +102,24 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
       setError('Completa todos los campos requeridos.')
       return
     }
+
+    // Proximity check — skip if user already confirmed
+    if (!confirmDuplicate) {
+      const lat = parseFloat(form.lat)
+      const lng = parseFloat(form.lng)
+      const delta = 0.0005 // ~55 meters bounding box
+      const { data: nearby } = await supabase
+        .from('buildings')
+        .select('id, name')
+        .gte('lat', lat - delta).lte('lat', lat + delta)
+        .gte('lng', lng - delta).lte('lng', lng + delta)
+        .limit(1)
+      if (nearby && nearby.length > 0) {
+        setNearbyBuilding(nearby[0])
+        return
+      }
+    }
+
     setLoading(true)
     try {
       const photoUrls = []
@@ -207,7 +233,7 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
         {/* Map preview + resolved address */}
         {form.lat && form.lng && (
           <div>
-            <div className="rounded-xl overflow-hidden h-40 border border-gray-200 mb-2">
+            <div className="rounded-xl overflow-hidden h-52 border border-gray-200 mb-2">
               <Map
                 longitude={parseFloat(form.lng)}
                 latitude={parseFloat(form.lat)}
@@ -221,7 +247,17 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
                 </Marker>
               </Map>
             </div>
-            {resolvedAddress && (
+            {!coordsInVenezuela && form.lat && form.lng ? (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                <div>
+                  <p className="text-xs text-red-700 font-semibold">Ubicación fuera de Venezuela</p>
+                  <p className="text-xs text-red-600 mt-0.5">Verifica la dirección o usa el pin para seleccionar en el mapa.</p>
+                </div>
+              </div>
+            ) : resolvedAddress ? (
               <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                 <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -229,7 +265,7 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
                 </svg>
                 <p className="text-xs text-green-800 leading-relaxed">{resolvedAddress}</p>
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -280,24 +316,31 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
         {/* Photos */}
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">
-            Fotos (máx. 5)
+            Fotos <span className="text-red-500">*</span>
+            <span className="text-gray-400 font-normal ml-1">(mín. 1, máx. 5)</span>
           </label>
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-gray-300 hover:border-red-400 rounded-lg p-4 text-center cursor-pointer transition-colors"
+            className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+              photoFiles.length > 0 ? 'border-green-400 bg-green-50' : 'border-red-300 hover:border-red-400'
+            }`}
           >
             {photos.length > 0 ? (
               <div className="flex gap-2 flex-wrap justify-center">
                 {photos.map((src, i) => (
                   <img key={i} src={src} alt="" className="h-16 w-20 object-cover rounded" />
                 ))}
+                <div className="flex items-center justify-center w-20 h-16 border-2 border-dashed border-gray-300 rounded text-gray-400 text-xs">
+                  + agregar
+                </div>
               </div>
             ) : (
               <div>
-                <svg className="w-8 h-8 text-gray-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-red-300 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <p className="text-xs text-gray-500">Toca para agregar fotos</p>
+                <p className="text-xs text-red-400 font-medium">Se requiere al menos una foto</p>
+                <p className="text-xs text-gray-400 mt-0.5">Toca para agregar</p>
               </div>
             )}
           </div>
@@ -310,6 +353,32 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
             onChange={e => handleFiles(e.target.files)}
           />
         </div>
+
+        {/* Duplicate warning */}
+        {nearbyBuilding && !confirmDuplicate && (
+          <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-3">
+            <p className="text-xs font-semibold text-yellow-800 mb-1">⚠️ Edificación cercana detectada</p>
+            <p className="text-xs text-yellow-700 mb-3">
+              Ya existe "<strong>{nearbyBuilding.name}</strong>" a menos de 50 metros. ¿Es una edificación diferente?
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setNearbyBuilding(null)}
+                className="flex-1 py-1.5 text-xs font-semibold border border-yellow-400 text-yellow-700 rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { setConfirmDuplicate(true); setNearbyBuilding(null) }}
+                className="flex-1 py-1.5 text-xs font-semibold bg-yellow-500 text-white rounded-lg"
+              >
+                Sí, es diferente
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Submit */}
         <button
@@ -333,7 +402,7 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
 
 export function ModalWrapper({ onClose, title, children, hidden }) {
   return (
-    <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center ${hidden ? 'invisible' : ''}`}>
+    <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center ${hidden ? 'hidden' : ''}`}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white w-full sm:max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] flex flex-col">
         {/* Modal header */}

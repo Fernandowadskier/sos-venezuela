@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { supabase, uploadPhoto } from '../lib/supabase'
 import { ModalWrapper } from './AddBuildingModal'
 
-export default function AddPersonModal({ buildings, preselectedBuilding, onClose, onSuccess }) {
+export default function AddPersonModal({ buildings, preselectedBuilding, onClose, onSuccess, onBuildingSelected }) {
   const [form, setForm] = useState({
     full_name: '',
     age: '',
@@ -23,10 +23,13 @@ export default function AddPersonModal({ buildings, preselectedBuilding, onClose
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
+  const canSubmit = form.full_name.trim() && photoFiles.length > 0
+
   const handleFiles = (files) => {
-    const arr = Array.from(files).slice(0, 5)
-    setPhotoFiles(arr)
-    setPhotos(arr.map(f => URL.createObjectURL(f)))
+    const incoming = Array.from(files)
+    const merged = [...photoFiles, ...incoming].slice(0, 5)
+    setPhotoFiles(merged)
+    setPhotos(merged.map(f => URL.createObjectURL(f)))
   }
 
   const handleSubmit = async (e) => {
@@ -120,24 +123,31 @@ export default function AddPersonModal({ buildings, preselectedBuilding, onClose
         {/* Photos */}
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">
-            Fotos de la persona (máx. 5)
+            Foto de la persona <span className="text-red-500">*</span>
+            <span className="text-gray-400 font-normal ml-1">(mín. 1, máx. 5)</span>
           </label>
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-gray-300 hover:border-orange-400 rounded-lg p-4 text-center cursor-pointer transition-colors"
+            className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+              photoFiles.length > 0 ? 'border-green-400 bg-green-50' : 'border-red-300 hover:border-orange-400'
+            }`}
           >
             {photos.length > 0 ? (
               <div className="flex gap-2 flex-wrap justify-center">
                 {photos.map((src, i) => (
                   <img key={i} src={src} alt="" className="h-16 w-16 object-cover rounded-full border-2 border-white shadow" />
                 ))}
+                <div className="flex items-center justify-center w-16 h-16 border-2 border-dashed border-gray-300 rounded-full text-gray-400 text-xs">
+                  +
+                </div>
               </div>
             ) : (
               <div>
-                <svg className="w-8 h-8 text-gray-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-red-300 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <p className="text-xs text-gray-500">Toca para agregar fotos</p>
+                <p className="text-xs text-red-400 font-medium">Se requiere al menos una foto</p>
+                <p className="text-xs text-gray-400 mt-0.5">Toca para agregar</p>
               </div>
             )}
           </div>
@@ -180,7 +190,11 @@ export default function AddPersonModal({ buildings, preselectedBuilding, onClose
           </label>
           <select
             value={form.building_id}
-            onChange={e => set('building_id', e.target.value)}
+            onChange={e => {
+              set('building_id', e.target.value)
+              const building = buildings.find(b => b.id === e.target.value)
+              if (building) onBuildingSelected?.(building)
+            }}
             className="input"
           >
             <option value="">— No asociar a edificación —</option>
@@ -258,8 +272,10 @@ export default function AddPersonModal({ buildings, preselectedBuilding, onClose
         {/* Submit */}
         <button
           type="submit"
-          disabled={loading}
-          className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+          disabled={loading || !canSubmit}
+          className={`w-full text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 ${
+            canSubmit && !loading ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-300 cursor-not-allowed'
+          }`}
         >
           {loading ? (
             <>

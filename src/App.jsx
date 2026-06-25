@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase'
 import AddBuildingModal from './components/AddBuildingModal'
 import AddPersonModal from './components/AddPersonModal'
 import BuildingPanel from './components/BuildingPanel'
+import SearchPage from './components/SearchPage'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 const DAMAGE_COLORS = {
@@ -33,24 +34,24 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [pickingLocation, setPickingLocation] = useState(false)
   const [pickedCoords, setPickedCoords] = useState(null)
+  const [activeTab, setActiveTab] = useState('map')
   const [viewport, setViewport] = useState({
     longitude: -66.9,
     latitude: 10.48,
     zoom: 7,
   })
 
-  useEffect(() => {
-    if (pickedCoords && !pickingLocation) {
-      setShowAddBuilding(true)
-    }
-  }, [pickedCoords, pickingLocation])
-
   const fetchBuildings = useCallback(async () => {
     const { data, error } = await supabase
       .from('buildings')
-      .select('*, missing_persons(id, full_name, status, photos)')
+      .select('*, missing_persons(*)')
       .order('created_at', { ascending: false })
-    if (!error) setBuildings(data || [])
+    if (!error) {
+      setBuildings(data || [])
+      setSelectedBuilding(prev =>
+        prev ? (data || []).find(b => b.id === prev.id) ?? prev : null
+      )
+    }
     setLoading(false)
   }, [])
 
@@ -75,6 +76,16 @@ export default function App() {
     fetchBuildings()
     setShowAddPerson(false)
     setAddPersonBuilding(null)
+  }
+
+  const flyTo = (lat, lng, zoom = 15) => {
+    setViewport({ latitude: parseFloat(lat), longitude: parseFloat(lng), zoom })
+  }
+
+  const handleSelectBuilding = (building) => {
+    setActiveTab('map')
+    setSelectedBuilding(building)
+    setViewport(v => ({ ...v, longitude: building.lng, latitude: building.lat, zoom: 16 }))
   }
 
   const openAddPerson = (building = null) => {
@@ -108,6 +119,9 @@ export default function App() {
               onClick={() => setShowAddBuilding(true)}
               className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
             >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
@@ -117,6 +131,9 @@ export default function App() {
               onClick={() => openAddPerson(null)}
               className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
             >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
@@ -127,7 +144,7 @@ export default function App() {
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-8 left-4 z-10 bg-white rounded-xl shadow-lg p-3">
+      <div className="absolute bottom-20 left-4 z-10 bg-white rounded-xl shadow-lg p-3">
         <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Tipo de afectación</p>
         {Object.entries(DAMAGE_LABELS).map(([key, label]) => (
           <div key={key} className="flex items-center gap-2 mb-1 last:mb-0">
@@ -137,8 +154,13 @@ export default function App() {
         ))}
       </div>
 
+      {/* Search page */}
+      <div className={`absolute inset-0 top-14 bottom-14 z-10 ${activeTab === 'search' ? '' : 'hidden'}`}>
+        <SearchPage onSelectBuilding={handleSelectBuilding} />
+      </div>
+
       {/* Map */}
-      <div className="w-full h-full pt-14">
+      <div className={`w-full h-full pt-14 pb-14 ${activeTab === 'map' ? '' : 'hidden'}`}>
         <Map
           {...viewport}
           onMove={e => setViewport(e.viewState)}
@@ -192,7 +214,7 @@ export default function App() {
           </svg>
           Toca el mapa para fijar la ubicación
           <button
-            onClick={() => { setPickingLocation(false); setShowAddBuilding(true) }}
+            onClick={() => setPickingLocation(false)}
             className="ml-2 underline text-blue-100 hover:text-white text-xs"
           >
             Cancelar
@@ -214,10 +236,12 @@ export default function App() {
       {/* Modals */}
       {showAddBuilding && (
         <AddBuildingModal
-          onClose={() => { setShowAddBuilding(false); setPickedCoords(null) }}
+          onClose={() => { setShowAddBuilding(false); setPickedCoords(null); setPickingLocation(false) }}
           onSuccess={handleBuildingAdded}
           pickedCoords={pickedCoords}
-          onPickLocation={() => { setShowAddBuilding(false); setPickingLocation(true) }}
+          onPickLocation={() => setPickingLocation(true)}
+          onLocationFound={flyTo}
+          hidden={pickingLocation}
         />
       )}
 
@@ -227,8 +251,35 @@ export default function App() {
           preselectedBuilding={addPersonBuilding}
           onClose={() => { setShowAddPerson(false); setAddPersonBuilding(null) }}
           onSuccess={handlePersonAdded}
+          onBuildingSelected={(b) => flyTo(b.lat, b.lng)}
         />
       )}
+
+      {/* Bottom tab bar */}
+      <div className="absolute bottom-0 left-0 right-0 h-14 bg-white border-t z-10 flex">
+        <button
+          onClick={() => setActiveTab('map')}
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
+            activeTab === 'map' ? 'text-red-600' : 'text-gray-400'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <span className="text-xs font-semibold">Mapa</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('search')}
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
+            activeTab === 'search' ? 'text-red-600' : 'text-gray-400'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <span className="text-xs font-semibold">Buscar</span>
+        </button>
+      </div>
 
       {loading && (
         <div className="absolute inset-0 bg-white flex items-center justify-center z-50">
@@ -254,7 +305,7 @@ function BuildingPin({ color, count }) {
         </svg>
       </div>
       {count > 0 && (
-        <div className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full border-2 border-white flex items-center justify-center">
+        <div className="absolute -top-1 -right-1 z-10 w-5 h-5 bg-orange-500 rounded-full border-2 border-white flex items-center justify-center">
           <span className="text-white text-xs font-bold leading-none">{count > 9 ? '9+' : count}</span>
         </div>
       )}

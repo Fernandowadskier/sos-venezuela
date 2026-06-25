@@ -1,9 +1,15 @@
+import { useState } from 'react'
+import PersonDetailModal from './PersonDetailModal'
+
 export default function BuildingPanel({ building, damageLabel, damageColor, onClose, onAddPerson }) {
   const missing = building.missing_persons?.filter(p => p.status === 'desaparecido') || []
   const found = building.missing_persons?.filter(p => p.status === 'encontrado') || []
+  const [lightboxIndex, setLightboxIndex] = useState(null)
+  const [selectedPerson, setSelectedPerson] = useState(null)
+  const photos = building.photos || []
 
   return (
-    <div className="absolute right-0 top-14 bottom-0 w-80 bg-white shadow-2xl z-20 flex flex-col overflow-hidden">
+    <div className="absolute right-0 top-14 bottom-14 w-80 bg-white shadow-2xl z-20 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0 p-4 border-b">
         <div className="flex items-start justify-between">
@@ -37,20 +43,6 @@ export default function BuildingPanel({ building, damageLabel, damageColor, onCl
           <p className="text-sm text-gray-600 mt-2 leading-relaxed">{building.description}</p>
         )}
 
-        {/* Photos */}
-        {building.photos && building.photos.length > 0 && (
-          <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1">
-            {building.photos.map((url, i) => (
-              <img
-                key={i}
-                src={url}
-                alt={`Foto ${i + 1}`}
-                className="w-20 h-14 object-cover rounded-lg flex-shrink-0"
-              />
-            ))}
-          </div>
-        )}
-
         {/* Stats */}
         <div className="flex gap-3 mt-3">
           <div className="flex-1 bg-orange-50 rounded-lg p-2 text-center">
@@ -64,12 +56,55 @@ export default function BuildingPanel({ building, damageLabel, damageColor, onCl
         </div>
       </div>
 
+      {/* Photos */}
+      <div className="flex-shrink-0 border-b">
+        {photos.length > 0 ? (
+          <div className="relative">
+            <img
+              src={photos[0]}
+              alt="Foto principal"
+              className="w-full h-44 object-cover cursor-pointer"
+              onClick={() => setLightboxIndex(0)}
+            />
+            {photos.length > 1 && (
+              <div className="flex gap-1 p-2">
+                {photos.slice(1).map((url, i) => (
+                  <img
+                    key={i}
+                    src={url}
+                    alt={`Foto ${i + 2}`}
+                    onClick={() => setLightboxIndex(i + 1)}
+                    className="w-16 h-12 object-cover rounded-md flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="w-full h-44 bg-gray-100 flex flex-col items-center justify-center gap-2">
+            <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p className="text-xs text-gray-400">Sin fotos disponibles</p>
+          </div>
+        )}
+      </div>
+
+      {/* Photo gallery lightbox */}
+      {lightboxIndex !== null && (
+        <PhotoGallery
+          photos={photos}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
+
       {/* Missing persons list */}
       <div className="flex-1 overflow-y-auto">
         {building.missing_persons && building.missing_persons.length > 0 ? (
           <div>
             {building.missing_persons.map(person => (
-              <PersonCard key={person.id} person={person} />
+              <PersonCard key={person.id} person={person} onClick={() => setSelectedPerson(person)} />
             ))}
           </div>
         ) : (
@@ -97,11 +132,92 @@ export default function BuildingPanel({ building, damageLabel, damageColor, onCl
           Reportado el {new Date(building.created_at).toLocaleDateString('es-VE')}
         </p>
       </div>
+
+      {selectedPerson && (
+        <PersonDetailModal person={selectedPerson} onClose={() => setSelectedPerson(null)} />
+      )}
     </div>
   )
 }
 
-function PersonCard({ person }) {
+function PhotoGallery({ photos, initialIndex, onClose }) {
+  const [index, setIndex] = useState(initialIndex)
+  const prev = () => setIndex(i => (i - 1 + photos.length) % photos.length)
+  const next = () => setIndex(i => (i + 1) % photos.length)
+
+  const handleKey = (e) => {
+    if (e.key === 'ArrowLeft') prev()
+    else if (e.key === 'ArrowRight') next()
+    else if (e.key === 'Escape') onClose()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/95 flex flex-col"
+      onKeyDown={handleKey}
+      tabIndex={-1}
+      ref={el => el?.focus()}
+    >
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
+        <span className="text-white/60 text-sm font-medium">{index + 1} / {photos.length}</span>
+        <button onClick={onClose} className="text-white/70 hover:text-white">
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Main image + arrows */}
+      <div className="flex-1 relative flex items-center justify-center px-12 min-h-0">
+        <img
+          src={photos[index]}
+          alt={`Foto ${index + 1}`}
+          className="max-w-full max-h-full object-contain select-none"
+        />
+        {photos.length > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnail strip */}
+      {photos.length > 1 && (
+        <div className="flex-shrink-0 flex gap-2 justify-center px-4 py-3 overflow-x-auto">
+          {photos.map((url, i) => (
+            <img
+              key={i}
+              src={url}
+              alt={`Miniatura ${i + 1}`}
+              onClick={() => setIndex(i)}
+              className={`w-14 h-14 object-cover rounded-lg flex-shrink-0 cursor-pointer transition-all ${
+                i === index ? 'ring-2 ring-white opacity-100' : 'opacity-40 hover:opacity-70'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PersonCard({ person, onClick }) {
   const statusConfig = {
     desaparecido: { color: 'bg-orange-100 text-orange-700', label: 'Desaparecido' },
     encontrado:   { color: 'bg-green-100 text-green-700',  label: 'Encontrado' },
@@ -110,7 +226,7 @@ function PersonCard({ person }) {
   const status = statusConfig[person.status] || statusConfig.desaparecido
 
   return (
-    <div className="p-3 border-b hover:bg-gray-50 transition-colors">
+    <div className="p-3 border-b hover:bg-gray-50 transition-colors cursor-pointer" onClick={onClick}>
       <div className="flex items-start gap-3">
         {/* Photo or avatar */}
         <div className="flex-shrink-0">
@@ -141,6 +257,7 @@ function PersonCard({ person }) {
           {person.contact_phone && (
             <a
               href={`tel:${person.contact_phone}`}
+              onClick={e => e.stopPropagation()}
               className="mt-1.5 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
             >
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,6 +267,9 @@ function PersonCard({ person }) {
             </a>
           )}
         </div>
+        <svg className="w-4 h-4 text-gray-300 flex-shrink-0 self-center ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
       </div>
     </div>
   )
