@@ -101,8 +101,8 @@ export default function App() {
   return (
     <div className="relative w-full h-full">
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 bg-white shadow-md">
-        <div className="flex items-center justify-between px-4 py-3">
+      <div className="absolute top-0 left-0 right-0 z-10 bg-white shadow-md h-14">
+        <div className="flex items-center justify-between px-4 h-full">
           <div className="flex items-center gap-3">
             <svg className="w-8 h-8 flex-shrink-0" viewBox="0 0 30 30">
               <defs>
@@ -130,10 +130,10 @@ export default function App() {
               </g>
               <circle cx="15" cy="15" r="14.5" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="1" />
             </svg>
-            <div>
-              <h1 className="font-bold text-gray-900 text-sm leading-tight">Crisis Venezuela</h1>
-              <p className="text-xs text-gray-500">
-                {buildings.length} edificaciones · {missingCount} personas desaparecidas
+            <div className="min-w-0">
+              <h1 className="font-bold text-gray-900 text-sm leading-tight whitespace-nowrap">Crisis Venezuela</h1>
+              <p className="text-xs text-gray-500 truncate">
+                {buildings.length} edif. · {missingCount} desaparecidos
               </p>
             </div>
           </div>
