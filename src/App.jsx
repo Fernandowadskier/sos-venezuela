@@ -8,12 +8,12 @@ import SearchPage from './components/SearchPage'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 const DAMAGE_COLORS = {
-  structural: '#f59e0b',
-  collapse:   '#ef4444',
-  fire:       '#f97316',
-  flood:      '#3b82f6',
-  landslide:  '#8b5cf6',
-  other:      '#6b7280',
+  collapse:   '#001f5b',
+  structural: '#003893',
+  fire:       '#0052cc',
+  flood:      '#0073e6',
+  landslide:  '#2196f3',
+  other:      '#64b0f2',
 }
 
 const DAMAGE_LABELS = {
@@ -208,23 +208,27 @@ export default function App() {
             </Marker>
           )}
 
-          {buildings.map(building => (
-            <Marker
-              key={building.id}
-              longitude={building.lng}
-              latitude={building.lat}
-              anchor="bottom"
-              onClick={e => {
-                e.originalEvent.stopPropagation()
-                setSelectedBuilding(building)
-              }}
-            >
-              <BuildingPin
-                color={DAMAGE_COLORS[building.damage_type] || DAMAGE_COLORS.other}
-                count={building.missing_persons?.filter(p => p.status === 'desaparecido').length || 0}
-              />
-            </Marker>
-          ))}
+          {buildings.map(building => {
+            const count = building.missing_persons?.filter(p => p.status === 'desaparecido').length || 0
+            return (
+              <Marker
+                key={building.id}
+                longitude={building.lng}
+                latitude={building.lat}
+                anchor="bottom"
+                style={{ zIndex: count > 0 ? 2 : 1 }}
+                onClick={e => {
+                  e.originalEvent.stopPropagation()
+                  setSelectedBuilding(building)
+                }}
+              >
+                <BuildingPin
+                  color={DAMAGE_COLORS[building.damage_type] || DAMAGE_COLORS.other}
+                  count={count}
+                />
+              </Marker>
+            )
+          })}
         </Map>
       </div>
 
