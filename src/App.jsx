@@ -104,9 +104,32 @@ export default function App() {
       <div className="absolute top-0 left-0 right-0 z-10 bg-white shadow-md">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-xs font-bold">VE</span>
-            </div>
+            <svg className="w-8 h-8 flex-shrink-0" viewBox="0 0 30 30">
+              <defs>
+                <clipPath id="vc">
+                  <circle cx="15" cy="15" r="15" />
+                </clipPath>
+              </defs>
+              <g clipPath="url(#vc)">
+                <rect width="30" height="10" fill="#FCD116" />
+                <rect y="10" width="30" height="10" fill="#003893" />
+                <rect y="20" width="30" height="10" fill="#CF1020" />
+                {[55,65,75,85,95,105,115,125].map((deg, i) => {
+                  const rad = deg * Math.PI / 180
+                  const cx = (15 + 9 * Math.cos(rad)).toFixed(2)
+                  const cy = (7 + 9 * Math.sin(rad)).toFixed(2)
+                  return (
+                    <polygon
+                      key={i}
+                      points="0,-1.3 0.37,-0.51 1.24,-0.4 0.62,0.2 0.76,1.07 0,0.67 -0.76,1.07 -0.62,0.2 -1.24,-0.4 -0.37,-0.51"
+                      fill="white"
+                      transform={`translate(${cx},${cy})`}
+                    />
+                  )
+                })}
+              </g>
+              <circle cx="15" cy="15" r="14.5" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="1" />
+            </svg>
             <div>
               <h1 className="font-bold text-gray-900 text-sm leading-tight">Crisis Venezuela</h1>
               <p className="text-xs text-gray-500">
@@ -117,7 +140,7 @@ export default function App() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowAddBuilding(true)}
-              className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 bg-[#003893] hover:bg-[#002d75] text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
             >
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -129,7 +152,7 @@ export default function App() {
             </button>
             <button
               onClick={() => openAddPerson(null)}
-              className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 bg-[#6B1B2E] hover:bg-[#551525] text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
             >
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -284,7 +307,7 @@ export default function App() {
       {loading && (
         <div className="absolute inset-0 bg-white flex items-center justify-center z-50">
           <div className="text-center">
-            <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <div className="w-10 h-10 border-4 border-[#003893] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
             <p className="text-sm text-gray-600">Cargando mapa...</p>
           </div>
         </div>
@@ -295,7 +318,7 @@ export default function App() {
 
 function BuildingPin({ color, count }) {
   return (
-    <div className="relative cursor-pointer group">
+    <div className="relative cursor-pointer group isolate">
       <div
         className="w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center transition-transform group-hover:scale-110"
         style={{ backgroundColor: color }}
@@ -305,7 +328,7 @@ function BuildingPin({ color, count }) {
         </svg>
       </div>
       {count > 0 && (
-        <div className="absolute -top-1 -right-1 z-10 w-5 h-5 bg-orange-500 rounded-full border-2 border-white flex items-center justify-center">
+        <div className="absolute -top-1 -right-1 z-20 w-5 h-5 bg-orange-500 rounded-full border-2 border-white flex items-center justify-center">
           <span className="text-white text-xs font-bold leading-none">{count > 9 ? '9+' : count}</span>
         </div>
       )}
