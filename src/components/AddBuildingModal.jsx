@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import Map, { Marker } from 'react-map-gl/maplibre'
 import { supabase, uploadPhoto } from '../lib/supabase'
 
 const DAMAGE_OPTIONS = [
@@ -10,7 +11,7 @@ const DAMAGE_OPTIONS = [
   { value: 'other',      label: 'Otro',               emoji: '📍' },
 ]
 
-export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onPickLocation }) {
+export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onPickLocation, hidden }) {
   const [form, setForm] = useState({
     name: '',
     address: '',
@@ -24,37 +25,61 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [geoLoading, setGeoLoading] = useState(false)
+  const [resolvedAddress, setResolvedAddress] = useState('')
   const fileRef = useRef()
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
   useEffect(() => {
-    if (pickedCoords) {
-      setForm(f => ({ ...f, lat: pickedCoords.lat, lng: pickedCoords.lng }))
-    }
+    if (!pickedCoords) return
+    setForm(f => ({ ...f, lat: pickedCoords.lat, lng: pickedCoords.lng }))
+    setResolvedAddress('Buscando ubicación...')
+    fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${pickedCoords.lat}&lon=${pickedCoords.lng}&format=json`,
+      { headers: { 'User-Agent': 'CrisisVenezuelaApp/1.0', 'Accept-Language': 'es' } }
+    )
+      .then(r => r.json())
+      .then(data => {
+        const a = data.address || {}
+        const parts = [a.road, a.suburb, a.city || a.town || a.municipality, a.state].filter(Boolean)
+        const label = parts.length > 0 ? parts.join(', ') : data.display_name
+        setResolvedAddress(label)
+        setForm(f => ({ ...f, address: f.address || label }))
+      })
+      .catch(() => {
+        const fallback = `${pickedCoords.lat}, ${pickedCoords.lng}`
+        setResolvedAddress(fallback)
+        setForm(f => ({ ...f, address: f.address || fallback }))
+      })
   }, [pickedCoords])
 
   const geocodeAddress = async () => {
     if (!form.address.trim()) return
     setGeoLoading(true)
+    setError('')
     try {
       const query = encodeURIComponent(form.address + ', Venezuela')
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=ve`,
-        { headers: { 'Accept-Language': 'es' } }
+        { headers: { 'Accept-Language': 'es', 'User-Agent': 'CrisisVenezuelaApp/1.0' } }
       )
       const data = await res.json()
       if (data && data.length > 0) {
-        const { lat, lon } = data[0]
-        setForm(f => ({ ...f, lat: parseFloat(lat).toFixed(6), lng: parseFloat(lon).toFixed(6) }))
+        const { lat, lon, address = {}, display_name } = data[0]
+        const parts = [address.road, address.suburb, address.city || address.town || address.municipality, address.state].filter(Boolean)
+        const label = parts.length > 0 ? parts.join(', ') : display_name
+        setForm(f => ({ ...f, lat: parseFloat(lat).toFixed(6), lng: parseFloat(lon).toFixed(6), address: f.address || label }))
+        setResolvedAddress(label)
       } else {
-        setError('No se encontró la dirección. Ingresa las coordenadas manualmente.')
+        setError('No se encontró la dirección. Intenta con más detalle o selecciona en el mapa.')
       }
     } catch {
-      setError('Error al geocodificar. Ingresa las coordenadas manualmente.')
+      setError('Error al buscar. Intenta de nuevo o selecciona en el mapa.')
     }
     setGeoLoading(false)
   }
+
+  const canSubmit = form.name.trim() && form.address.trim() && form.lat && form.lng && form.damage_type
 
   const handleFiles = (files) => {
     const arr = Array.from(files).slice(0, 5)
@@ -71,11 +96,14 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
     }
     setLoading(true)
     try {
-      // Upload photos
       const photoUrls = []
       for (const file of photoFiles) {
-        const url = await uploadPhoto(file)
-        photoUrls.push(url)
+        try {
+          const url = await uploadPhoto(file)
+          photoUrls.push(url)
+        } catch {
+          // skip photos that fail to upload rather than blocking the report
+        }
       }
       const { error: dbError } = await supabase.from('buildings').insert({
         name: form.name.trim(),
@@ -95,7 +123,7 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
   }
 
   return (
-    <ModalWrapper onClose={onClose} title="Reportar edificación afectada">
+    <ModalWrapper onClose={onClose} title="Reportar edificación afectada" hidden={hidden}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
@@ -114,7 +142,6 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
             onChange={e => set('name', e.target.value)}
             placeholder="Ej: Edificio Las Mercedes, Casa Familia Rodríguez"
             className="input"
-            required
           />
         </div>
 
@@ -154,8 +181,18 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
               onChange={e => set('address', e.target.value)}
               placeholder="Calle, número, sector, municipio, estado"
               className="input flex-1"
-              required
             />
+            <button
+              type="button"
+              onClick={onPickLocation}
+              title="Seleccionar en el mapa"
+              className="flex-shrink-0 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
             <button
               type="button"
               onClick={geocodeAddress}
@@ -165,21 +202,36 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
               {geoLoading ? '...' : 'Buscar'}
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-1">Haz clic en "Buscar" para obtener coordenadas automáticamente</p>
         </div>
 
-        {/* Pick on map */}
-        <button
-          type="button"
-          onClick={onPickLocation}
-          className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-blue-300 hover:border-blue-500 text-blue-600 hover:text-blue-700 text-sm font-semibold py-2.5 rounded-xl transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          {pickedCoords ? 'Cambiar ubicación en el mapa' : 'Seleccionar en el mapa'}
-        </button>
+        {/* Map preview + resolved address */}
+        {form.lat && form.lng && (
+          <div>
+            <div className="rounded-xl overflow-hidden h-40 border border-gray-200 mb-2">
+              <Map
+                longitude={parseFloat(form.lng)}
+                latitude={parseFloat(form.lat)}
+                zoom={15}
+                interactive={false}
+                mapStyle="https://tiles.openfreemap.org/styles/liberty"
+                style={{ width: '100%', height: '100%' }}
+              >
+                <Marker longitude={parseFloat(form.lng)} latitude={parseFloat(form.lat)} anchor="bottom">
+                  <div className="w-5 h-5 bg-red-600 rounded-full border-3 border-white shadow-lg" />
+                </Marker>
+              </Map>
+            </div>
+            {resolvedAddress && (
+              <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <p className="text-xs text-green-800 leading-relaxed">{resolvedAddress}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Coordinates */}
         <div className="grid grid-cols-2 gap-2">
@@ -194,7 +246,6 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
               onChange={e => set('lat', e.target.value)}
               placeholder="10.4806"
               className="input"
-              required
             />
           </div>
           <div>
@@ -208,7 +259,6 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
               onChange={e => set('lng', e.target.value)}
               placeholder="-66.9036"
               className="input"
-              required
             />
           </div>
         </div>
@@ -264,8 +314,10 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
         {/* Submit */}
         <button
           type="submit"
-          disabled={loading}
-          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+          disabled={loading || !canSubmit}
+          className={`w-full text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 ${
+            canSubmit && !loading ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-300 cursor-not-allowed'
+          }`}
         >
           {loading ? (
             <>
@@ -279,9 +331,9 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
   )
 }
 
-export function ModalWrapper({ onClose, title, children }) {
+export function ModalWrapper({ onClose, title, children, hidden }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center ${hidden ? 'invisible' : ''}`}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white w-full sm:max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] flex flex-col">
         {/* Modal header */}

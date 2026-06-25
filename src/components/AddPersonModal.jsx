@@ -40,8 +40,12 @@ export default function AddPersonModal({ buildings, preselectedBuilding, onClose
     try {
       const photoUrls = []
       for (const file of photoFiles) {
-        const url = await uploadPhoto(file)
-        photoUrls.push(url)
+        try {
+          const url = await uploadPhoto(file)
+          photoUrls.push(url)
+        } catch {
+          // skip photos that fail to upload rather than blocking the report
+        }
       }
       const { error: dbError } = await supabase.from('missing_persons').insert({
         full_name: form.full_name.trim(),
