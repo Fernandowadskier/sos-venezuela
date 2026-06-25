@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase, uploadPhoto } from '../lib/supabase'
 
 const DAMAGE_OPTIONS = [
@@ -10,12 +10,12 @@ const DAMAGE_OPTIONS = [
   { value: 'other',      label: 'Otro',               emoji: '📍' },
 ]
 
-export default function AddBuildingModal({ onClose, onSuccess }) {
+export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onPickLocation }) {
   const [form, setForm] = useState({
     name: '',
     address: '',
-    lat: '',
-    lng: '',
+    lat: pickedCoords?.lat || '',
+    lng: pickedCoords?.lng || '',
     damage_type: '',
     description: '',
   })
@@ -28,19 +28,25 @@ export default function AddBuildingModal({ onClose, onSuccess }) {
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
+  useEffect(() => {
+    if (pickedCoords) {
+      setForm(f => ({ ...f, lat: pickedCoords.lat, lng: pickedCoords.lng }))
+    }
+  }, [pickedCoords])
+
   const geocodeAddress = async () => {
     if (!form.address.trim()) return
     setGeoLoading(true)
     try {
-      const token = import.meta.env.VITE_MAPBOX_TOKEN
       const query = encodeURIComponent(form.address + ', Venezuela')
       const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${query}.json?access_token=${token}&country=ve&limit=1`
+        `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=ve`,
+        { headers: { 'Accept-Language': 'es' } }
       )
       const data = await res.json()
-      if (data.features && data.features.length > 0) {
-        const [lng, lat] = data.features[0].geometry.coordinates
-        setForm(f => ({ ...f, lat: lat.toFixed(6), lng: lng.toFixed(6) }))
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0]
+        setForm(f => ({ ...f, lat: parseFloat(lat).toFixed(6), lng: parseFloat(lon).toFixed(6) }))
       } else {
         setError('No se encontró la dirección. Ingresa las coordenadas manualmente.')
       }
@@ -161,6 +167,19 @@ export default function AddBuildingModal({ onClose, onSuccess }) {
           </div>
           <p className="text-xs text-gray-400 mt-1">Haz clic en "Buscar" para obtener coordenadas automáticamente</p>
         </div>
+
+        {/* Pick on map */}
+        <button
+          type="button"
+          onClick={onPickLocation}
+          className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-blue-300 hover:border-blue-500 text-blue-600 hover:text-blue-700 text-sm font-semibold py-2.5 rounded-xl transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          {pickedCoords ? 'Cambiar ubicación en el mapa' : 'Seleccionar en el mapa'}
+        </button>
 
         {/* Coordinates */}
         <div className="grid grid-cols-2 gap-2">

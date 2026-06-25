@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Map, { Marker, Popup, NavigationControl, FullscreenControl } from 'react-map-gl'
+import Map, { Marker, NavigationControl, FullscreenControl } from 'react-map-gl/maplibre'
 import { supabase } from './lib/supabase'
 import AddBuildingModal from './components/AddBuildingModal'
 import AddPersonModal from './components/AddPersonModal'
 import BuildingPanel from './components/BuildingPanel'
-import 'mapbox-gl/dist/mapbox-gl.css'
-
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
+import 'maplibre-gl/dist/maplibre-gl.css'
 
 const DAMAGE_COLORS = {
   structural: '#f59e0b',
@@ -33,11 +31,19 @@ export default function App() {
   const [showAddPerson, setShowAddPerson] = useState(false)
   const [addPersonBuilding, setAddPersonBuilding] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [pickingLocation, setPickingLocation] = useState(false)
+  const [pickedCoords, setPickedCoords] = useState(null)
   const [viewport, setViewport] = useState({
     longitude: -66.9,
     latitude: 10.48,
     zoom: 7,
   })
+
+  useEffect(() => {
+    if (pickedCoords && !pickingLocation) {
+      setShowAddBuilding(true)
+    }
+  }, [pickedCoords, pickingLocation])
 
   const fetchBuildings = useCallback(async () => {
     const { data, error } = await supabase
@@ -62,6 +68,7 @@ export default function App() {
   const handleBuildingAdded = () => {
     fetchBuildings()
     setShowAddBuilding(false)
+    setPickedCoords(null)
   }
 
   const handlePersonAdded = () => {
@@ -135,13 +142,26 @@ export default function App() {
         <Map
           {...viewport}
           onMove={e => setViewport(e.viewState)}
-          mapboxAccessToken={MAPBOX_TOKEN}
-          mapStyle="mapbox://styles/mapbox/streets-v12"
-          style={{ width: '100%', height: '100%' }}
-          onClick={() => setSelectedBuilding(null)}
+          mapStyle="https://tiles.openfreemap.org/styles/liberty"
+          style={{ width: '100%', height: '100%', cursor: pickingLocation ? 'crosshair' : 'grab' }}
+          onClick={e => {
+            if (pickingLocation) {
+              const { lng, lat } = e.lngLat
+              setPickedCoords({ lat: lat.toFixed(6), lng: lng.toFixed(6) })
+              setPickingLocation(false)
+            } else {
+              setSelectedBuilding(null)
+            }
+          }}
         >
           <NavigationControl position="top-right" />
           <FullscreenControl position="top-right" />
+
+          {pickedCoords && !pickingLocation && (
+            <Marker longitude={parseFloat(pickedCoords.lng)} latitude={parseFloat(pickedCoords.lat)} anchor="bottom">
+              <div className="w-6 h-6 bg-blue-600 rounded-full border-4 border-white shadow-lg" />
+            </Marker>
+          )}
 
           {buildings.map(building => (
             <Marker
@@ -163,6 +183,23 @@ export default function App() {
         </Map>
       </div>
 
+      {/* Picking location banner */}
+      {pickingLocation && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 bg-blue-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Toca el mapa para fijar la ubicación
+          <button
+            onClick={() => { setPickingLocation(false); setShowAddBuilding(true) }}
+            className="ml-2 underline text-blue-100 hover:text-white text-xs"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       {/* Building detail panel */}
       {selectedBuilding && (
         <BuildingPanel
@@ -177,8 +214,10 @@ export default function App() {
       {/* Modals */}
       {showAddBuilding && (
         <AddBuildingModal
-          onClose={() => setShowAddBuilding(false)}
+          onClose={() => { setShowAddBuilding(false); setPickedCoords(null) }}
           onSuccess={handleBuildingAdded}
+          pickedCoords={pickedCoords}
+          onPickLocation={() => { setShowAddBuilding(false); setPickingLocation(true) }}
         />
       )}
 
