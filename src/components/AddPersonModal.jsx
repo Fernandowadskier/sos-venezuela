@@ -129,7 +129,7 @@ export default function AddPersonModal({ buildings, preselectedBuilding, onClose
           <div
             onClick={() => fileRef.current?.click()}
             className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
-              photoFiles.length > 0 ? 'border-green-400 bg-green-50' : 'border-red-300 hover:border-orange-400'
+              photoFiles.length > 0 ? 'border-green-400 bg-green-50' : 'border-[#6B1B2E]/40 hover:border-[#6B1B2E]'
             }`}
           >
             {photos.length > 0 ? (
@@ -143,10 +143,10 @@ export default function AddPersonModal({ buildings, preselectedBuilding, onClose
               </div>
             ) : (
               <div>
-                <svg className="w-8 h-8 text-red-300 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-[#6B1B2E]/40 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <p className="text-xs text-red-400 font-medium">Se requiere al menos una foto</p>
+                <p className="text-xs text-[#6B1B2E]/60 font-medium">Se requiere al menos una foto</p>
                 <p className="text-xs text-gray-400 mt-0.5">Toca para agregar</p>
               </div>
             )}
@@ -222,7 +222,7 @@ export default function AddPersonModal({ buildings, preselectedBuilding, onClose
                 onClick={() => set('status', opt.value)}
                 className={`flex-1 py-2 rounded-lg border-2 text-xs font-semibold transition-all ${
                   form.status === opt.value
-                    ? opt.color === 'orange' ? 'border-orange-500 bg-orange-50 text-orange-700'
+                    ? opt.color === 'orange' ? 'border-[#6B1B2E] bg-[#6B1B2E]/10 text-[#6B1B2E]'
                     : opt.color === 'green'  ? 'border-green-500 bg-green-50 text-green-700'
                     : 'border-gray-400 bg-gray-50 text-gray-700'
                     : 'border-gray-200 text-gray-500'
@@ -274,7 +274,7 @@ export default function AddPersonModal({ buildings, preselectedBuilding, onClose
           type="submit"
           disabled={loading || !canSubmit}
           className={`w-full text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 ${
-            canSubmit && !loading ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-300 cursor-not-allowed'
+            canSubmit && !loading ? 'bg-[#6B1B2E] hover:bg-[#551525]' : 'bg-gray-300 cursor-not-allowed'
           }`}
         >
           {loading ? (

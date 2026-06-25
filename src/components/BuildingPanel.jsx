@@ -121,7 +121,7 @@ export default function BuildingPanel({ building, damageLabel, damageColor, onCl
       <div className="flex-shrink-0 p-3 border-t bg-gray-50">
         <button
           onClick={onAddPerson}
-          className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+          className="w-full flex items-center justify-center gap-2 bg-[#6B1B2E] hover:bg-[#551525] text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

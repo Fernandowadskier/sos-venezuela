@@ -184,7 +184,7 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
                 onClick={() => set('damage_type', opt.value)}
                 className={`flex flex-col items-center p-2 rounded-lg border-2 text-xs font-medium transition-all ${
                   form.damage_type === opt.value
-                    ? 'border-red-600 bg-red-50 text-red-700'
+                    ? 'border-[#003893] bg-blue-50 text-[#003893]'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300'
                 }`}
               >
@@ -243,7 +243,7 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
                 style={{ width: '100%', height: '100%' }}
               >
                 <Marker longitude={parseFloat(form.lng)} latitude={parseFloat(form.lat)} anchor="bottom">
-                  <div className="w-5 h-5 bg-red-600 rounded-full border-3 border-white shadow-lg" />
+                  <div className="w-5 h-5 bg-[#003893] rounded-full border-3 border-white shadow-lg" />
                 </Marker>
               </Map>
             </div>
@@ -322,7 +322,7 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
           <div
             onClick={() => fileRef.current?.click()}
             className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
-              photoFiles.length > 0 ? 'border-green-400 bg-green-50' : 'border-red-300 hover:border-red-400'
+              photoFiles.length > 0 ? 'border-green-400 bg-green-50' : 'border-[#003893]/40 hover:border-[#003893]'
             }`}
           >
             {photos.length > 0 ? (
@@ -336,10 +336,10 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
               </div>
             ) : (
               <div>
-                <svg className="w-8 h-8 text-red-300 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-[#003893]/40 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <p className="text-xs text-red-400 font-medium">Se requiere al menos una foto</p>
+                <p className="text-xs text-[#003893]/60 font-medium">Se requiere al menos una foto</p>
                 <p className="text-xs text-gray-400 mt-0.5">Toca para agregar</p>
               </div>
             )}
@@ -385,7 +385,7 @@ export default function AddBuildingModal({ onClose, onSuccess, pickedCoords, onP
           type="submit"
           disabled={loading || !canSubmit}
           className={`w-full text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 ${
-            canSubmit && !loading ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-300 cursor-not-allowed'
+            canSubmit && !loading ? 'bg-[#003893] hover:bg-[#002d75]' : 'bg-gray-300 cursor-not-allowed'
           }`}
         >
           {loading ? (
@@ -416,7 +416,7 @@ export function ModalWrapper({ onClose, title, children, hidden }) {
         </div>
         {/* Scrollable content */}
         <div className="overflow-y-auto flex-1 px-5 py-4">
-          <style>{`.input { width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; transition: border-color 0.15s; } .input:focus { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }`}</style>
+          <style>{`.input { width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; transition: border-color 0.15s; } .input:focus { border-color: #003893; box-shadow: 0 0 0 3px rgba(0,56,147,0.12); }`}</style>
           {children}
         </div>
       </div>
