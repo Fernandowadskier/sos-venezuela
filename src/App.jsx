@@ -318,28 +318,65 @@ export default function App() {
 
 function BuildingPin({ color, count }) {
   return (
-    <div className="relative cursor-pointer group isolate">
+    <div style={{ position: 'relative', width: 40, height: 48, cursor: 'pointer' }}>
+      {/* Pin tail */}
       <div
-        className="w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center transition-transform group-hover:scale-110"
-        style={{ backgroundColor: color }}
-      >
-        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-        </svg>
-      </div>
-      {count > 0 && (
-        <div className="absolute -top-1 -right-1 z-20 w-5 h-5 bg-orange-500 rounded-full border-2 border-white flex items-center justify-center">
-          <span className="text-white text-xs font-bold leading-none">{count > 9 ? '9+' : count}</span>
-        </div>
-      )}
-      <div
-        className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-2 w-0 h-0"
         style={{
+          position: 'absolute',
+          bottom: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 0,
+          height: 0,
           borderLeft: '6px solid transparent',
           borderRight: '6px solid transparent',
           borderTop: `8px solid ${color}`,
         }}
       />
+      {/* Circle */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          backgroundColor: color,
+          border: '4px solid white',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+        </svg>
+      </div>
+      {/* Count badge — rendered last so it's always on top */}
+      {count > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: -4,
+            right: -4,
+            width: 20,
+            height: 20,
+            borderRadius: '50%',
+            backgroundColor: '#f97316',
+            border: '2px solid white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+        >
+          <span style={{ color: 'white', fontSize: 10, fontWeight: 700, lineHeight: 1 }}>
+            {count > 9 ? '9+' : count}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
